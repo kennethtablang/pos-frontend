@@ -13,8 +13,12 @@ const ThemeToggle = () => {
   };
 
   return (
-    <button className="btn btn-sm btn-secondary" onClick={toggleTheme}>
-      Toggle {theme === "light" ? "🌙 Dark" : "☀️ Light"}
+    <button
+      className="btn btn-sm btn-ghost"
+      onClick={toggleTheme}
+      aria-label="Toggle theme"
+    >
+      {theme === "light" ? "🌙" : "☀️"}
     </button>
   );
 };
