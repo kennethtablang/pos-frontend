@@ -45,13 +45,17 @@ interface MenuItem {
 }
 
 const menuItems: MenuItem[] = [
-  { label: "Dashboard", to: "/dashboard", icon: <Home className="w-5 h-5" /> },
+  {
+    label: "Dashboard",
+    to: "/dashboard/admin",
+    icon: <Home className="w-5 h-5" />,
+  },
   {
     label: "Sales",
     icon: <ShoppingCart className="w-5 h-5" />,
     children: [
       {
-        to: "/dashboard/pos",
+        to: "/dashboard/sales/newsales",
         label: "New Sale",
         icon: <ShoppingCart className="w-5 h-5" />,
       },
@@ -98,12 +102,12 @@ const menuItems: MenuItem[] = [
         icon: <Edit3 className="w-5 h-5" />,
       },
       {
-        to: "/dashboard/bad-orders",
+        to: "/dashboard/stock/bad-orders",
         label: "Bad Orders",
         icon: <AlertCircle className="w-5 h-5" />,
       },
       {
-        to: "/dashboard/low-stock",
+        to: "/dashboard/stock/low-stock",
         label: "Low-Stock Alerts",
         icon: <Bell className="w-5 h-5" />,
       },
