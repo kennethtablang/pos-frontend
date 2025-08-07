@@ -30,6 +30,7 @@ import {
   Database,
   RotateCw,
   X,
+  Computer,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -209,6 +210,11 @@ const menuItems: MenuItem[] = [
         to: "/dashboard/settings/users",
         label: "User Management",
         icon: <UserPlus className="w-5 h-5" />,
+      },
+      {
+        to: "/dashboard/settings/counters",
+        label: "List of Counters",
+        icon: <Computer className="w-5 h-5" />,
       },
       {
         to: "/dashboard/settings/logs",

@@ -55,7 +55,7 @@ export default function Navbar({ toggleSidebar }: NavbarProps) {
             <li>
               <button
                 type="button"
-                onClick={() => navigate("/dashboard/profile")}
+                onClick={() => navigate("/dashboard/settings/business")}
                 className="justify-start"
               >
                 My Profile

@@ -47,6 +47,7 @@ import ReceiptSettingsPage from "../pages/settings/RecieptSettingsPage";
 import DiscountSettingsPage from "../pages/settings/DiscountSettingsPage";
 import SystemLogsPage from "../pages/settings/SystemLogsPage";
 import UserManagementPage from "../pages/settings/UserManagementPage";
+import CounterSettingPage from "../pages/settings/CounterSettingPage";
 // utilities pages
 import BackupAndRestorePage from "../pages/utilities/BackupAndRestorePage";
 import ReprintRequestPage from "../pages/utilities/ReprintRequestPage";
@@ -309,6 +310,15 @@ const AppRoutes = () => (
         element={
           <RoleProtectedRoute allowedRoles={["Admin"]}>
             <UserManagementPage />
+          </RoleProtectedRoute>
+        }
+      />
+
+      <Route
+        path="settings/counters"
+        element={
+          <RoleProtectedRoute allowedRoles={["Admin"]}>
+            <CounterSettingPage />
           </RoleProtectedRoute>
         }
       />

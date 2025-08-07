@@ -1,4 +1,13 @@
+// tsconfig.json
 {
+  "compilerOptions": {
+    "baseUrl": ".",                         
+    "paths": {
+      "@/*": ["src/*"]                      // "@/foo" → "src/foo"
+    },
+    "forceConsistentCasingInFileNames": true,  // Enforce exact filename casing across OSes
+    "strict": true                             // Enable all strict type-checking options
+  },
   "files": [],
   "references": [
     { "path": "./tsconfig.app.json" },
