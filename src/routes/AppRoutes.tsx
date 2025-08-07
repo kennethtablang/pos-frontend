@@ -27,6 +27,7 @@ import StockReceivingPage from "../pages/inventory/StockReceivingPage";
 import StockAdjustmentPage from "../pages/inventory/StockAdjustmentsPage";
 import BadOrderPage from "../pages/inventory/BadOrderPage";
 import LowStockAlertPage from "../pages/inventory/LowStockAlertsPage";
+import UnitPage from "../pages/inventory/UnitPage";
 // suppliers pages
 import PurchaseOrderPage from "../pages/suppliers/PurchaseOrdersPage";
 import SuppliersPage from "../pages/suppliers/SuppliersPage";
@@ -140,7 +141,7 @@ const AppRoutes = () => (
 
       {/* Inventory Functions */}
       <Route
-        path="stock/receive"
+        path="inventory/receive"
         element={
           <RoleProtectedRoute allowedRoles={["Admin"]}>
             <StockReceivingPage />
@@ -149,7 +150,7 @@ const AppRoutes = () => (
       />
 
       <Route
-        path="stock/adjust"
+        path="inventory/adjust"
         element={
           <RoleProtectedRoute allowedRoles={["Admin"]}>
             <StockAdjustmentPage />
@@ -158,7 +159,7 @@ const AppRoutes = () => (
       />
 
       <Route
-        path="stock/bad-orders"
+        path="inventory/bad-orders"
         element={
           <RoleProtectedRoute allowedRoles={["Admin"]}>
             <BadOrderPage />
@@ -167,10 +168,18 @@ const AppRoutes = () => (
       />
 
       <Route
-        path="stock/low-stock"
+        path="inventory/low-stock"
         element={
           <RoleProtectedRoute allowedRoles={["Admin"]}>
             <LowStockAlertPage />
+          </RoleProtectedRoute>
+        }
+      />
+      <Route
+        path="inventory/units"
+        element={
+          <RoleProtectedRoute allowedRoles={["Admin"]}>
+            <UnitPage />
           </RoleProtectedRoute>
         }
       />

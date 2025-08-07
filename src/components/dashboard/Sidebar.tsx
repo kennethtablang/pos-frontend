@@ -15,6 +15,7 @@ import {
   Edit3,
   AlertCircle,
   Bell,
+  Boxes,
   BarChart2,
   PieChart,
   Star,
@@ -93,24 +94,29 @@ const menuItems: MenuItem[] = [
     icon: <Download className="w-5 h-5" />,
     children: [
       {
-        to: "/dashboard/stock/receive",
+        to: "/dashboard/inventory/receive",
         label: "Stock Receiving",
         icon: <Download className="w-5 h-5" />,
       },
       {
-        to: "/dashboard/stock/adjust",
+        to: "/dashboard/inventory/adjust",
         label: "Stock Adjustments",
         icon: <Edit3 className="w-5 h-5" />,
       },
       {
-        to: "/dashboard/stock/bad-orders",
+        to: "/dashboard/inventory/bad-orders",
         label: "Bad Orders",
         icon: <AlertCircle className="w-5 h-5" />,
       },
       {
-        to: "/dashboard/stock/low-stock",
+        to: "/dashboard/inventory/low-stock",
         label: "Low-Stock Alerts",
         icon: <Bell className="w-5 h-5" />,
+      },
+      {
+        to: "/dashboard/inventory/units",
+        label: "Units",
+        icon: <Boxes className="w-5 h-5" />,
       },
     ],
   },
