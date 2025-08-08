@@ -28,6 +28,7 @@ import StockAdjustmentPage from "../pages/inventory/StockAdjustmentsPage";
 import BadOrderPage from "../pages/inventory/BadOrderPage";
 import LowStockAlertPage from "../pages/inventory/LowStockAlertsPage";
 import UnitPage from "../pages/inventory/UnitPage";
+import ProductUnitConversionPage from "../pages/inventory/ProductUnitConversionPage";
 // suppliers pages
 import PurchaseOrderPage from "../pages/suppliers/PurchaseOrdersPage";
 import SuppliersPage from "../pages/suppliers/SuppliersPage";
@@ -175,11 +176,21 @@ const AppRoutes = () => (
           </RoleProtectedRoute>
         }
       />
+
       <Route
         path="inventory/units"
         element={
           <RoleProtectedRoute allowedRoles={["Admin"]}>
             <UnitPage />
+          </RoleProtectedRoute>
+        }
+      />
+
+      <Route
+        path="inventory/unit-conversions"
+        element={
+          <RoleProtectedRoute allowedRoles={["Admin"]}>
+            <ProductUnitConversionPage />
           </RoleProtectedRoute>
         }
       />
