@@ -33,6 +33,7 @@ import ProductUnitConversionPage from "../pages/inventory/ProductUnitConversionP
 import PurchaseOrderPage from "../pages/suppliers/PurchaseOrdersPage";
 import SuppliersPage from "../pages/suppliers/SuppliersPage";
 import PendingDeliveriesPage from "../pages/suppliers/PendingDeliveriesPage";
+import PurchaseOrderDetailsPage from "../pages/suppliers/PurchaseOrderDetailsPage";
 // reports pages
 import SalesReportPage from "../pages/reports/SalesReportsPage";
 import InventoryReportsPage from "../pages/reports/InventoryReportsPage";
@@ -201,6 +202,15 @@ const AppRoutes = () => (
         element={
           <RoleProtectedRoute allowedRoles={["Admin"]}>
             <PurchaseOrderPage />
+          </RoleProtectedRoute>
+        }
+      />
+
+      <Route
+        path="purchase-orders/:id"
+        element={
+          <RoleProtectedRoute allowedRoles={["Admin"]}>
+            <PurchaseOrderDetailsPage />
           </RoleProtectedRoute>
         }
       />
