@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import { purchaseOrderService } from "@/services/purchaseOrderService";
 import { productService } from "@/services/productService";
+import { supplierService } from "@/services/supplierServices";
 import type {
   PurchaseOrderReadDto,
   PurchaseOrderUpdateDto,
@@ -26,7 +27,7 @@ export type EditPurchaseOrderModalProps = {
   onClose: () => void;
   order: PurchaseOrderReadDto | null;
   onUpdated: () => Promise<void>;
-  suppliers: SupplierReadDto[]; // parent can pass suppliers (optional but helpful)
+  suppliers?: SupplierReadDto[]; // parent can pass suppliers (optional)
 };
 
 export default function EditPurchaseOrderModal({
@@ -34,7 +35,7 @@ export default function EditPurchaseOrderModal({
   onClose,
   order,
   onUpdated,
-  suppliers,
+  suppliers: suppliersProp = [],
 }: EditPurchaseOrderModalProps) {
   const queryClient = useQueryClient();
 
@@ -61,11 +62,49 @@ export default function EditPurchaseOrderModal({
   const [productOptions, setProductOptions] = useState<ProductReadDto[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
 
+  // suppliers state: use prop if present, otherwise fetch inside modal
+  const [suppliers, setSuppliers] = useState<SupplierReadDto[]>(suppliersProp);
+  const [loadingSuppliers, setLoadingSuppliers] = useState(false);
+
   // Add-item controls (local)
   const [addingProductId, setAddingProductId] = useState<number | "">("");
   const [addingQuantity, setAddingQuantity] = useState<number>(1);
   const [addingCostPerUnit, setAddingCostPerUnit] = useState<number>(0);
   const [addingNotes, setAddingNotes] = useState<string>("");
+
+  // Helper: format backend datetime to yyyy-MM-dd for <input type="date">
+  const formatDateForInput = (d?: string | null) => {
+    if (!d) return undefined;
+    const dt = new Date(d);
+    if (Number.isNaN(dt.getTime())) return undefined;
+    // toISOString() gives yyyy-mm-ddThh:mm:ss.sssZ -> take first 10 chars
+    return dt.toISOString().slice(0, 10);
+  };
+
+  // If parent didn't pass suppliers, fetch them once when modal opens
+  useEffect(() => {
+    if (!isOpen) return;
+    if (suppliersProp && suppliersProp.length > 0) {
+      setSuppliers(suppliersProp);
+      return;
+    }
+
+    const fetchSuppliers = async () => {
+      setLoadingSuppliers(true);
+      try {
+        const s = await supplierService.getAll();
+        setSuppliers(s);
+      } catch (err) {
+        console.error(err);
+        toast.error("Failed to load suppliers.");
+      } finally {
+        setLoadingSuppliers(false);
+      }
+    };
+
+    fetchSuppliers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, suppliersProp]);
 
   // Load product list when modal opens
   useEffect(() => {
@@ -94,7 +133,8 @@ export default function EditPurchaseOrderModal({
     reset({
       supplierId: order.supplierId,
       remarks: order.remarks ?? undefined,
-      expectedDeliveryDate: order.expectedDeliveryDate ?? undefined,
+      // format expectedDeliveryDate to yyyy-MM-dd so date input shows it
+      expectedDeliveryDate: formatDateForInput(order.expectedDeliveryDate),
       status: order.status,
     });
 
@@ -265,6 +305,11 @@ export default function EditPurchaseOrderModal({
   // If modal not open or no order, don't render
   if (!isOpen || !order) return null;
 
+  // helper to detect whether suppliers list already contains the order supplier
+  const suppliersContainOrderSupplier = suppliers.some(
+    (s) => s.id === order.supplierId
+  );
+
   return (
     <dialog className={`modal ${isOpen ? "modal-open" : ""}`}>
       <div className="modal-box max-w-4xl w-full">
@@ -280,10 +325,19 @@ export default function EditPurchaseOrderModal({
               <select
                 {...register("supplierId", { valueAsNumber: true })}
                 className="select select-bordered w-full"
+                disabled={loadingSuppliers}
               >
+                {/* fallback selected option so the select shows something even if suppliers array doesn't contain it */}
+                {!suppliersContainOrderSupplier && (
+                  <option value={order.supplierId}>
+                    {order.supplierName ?? `#${order.supplierId}`}
+                  </option>
+                )}
+
                 <option value={0} disabled>
                   Select supplier
                 </option>
+
                 {suppliers.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -297,6 +351,7 @@ export default function EditPurchaseOrderModal({
 
             <div>
               <label className="label">Expected Delivery Date</label>
+              {/* using formatted date value provided via reset */}
               <input
                 type="date"
                 {...register("expectedDeliveryDate")}

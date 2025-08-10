@@ -372,7 +372,16 @@ export default function PurchaseOrderDetailsPage() {
                   <tr key={r.id}>
                     <td>{r.productName ?? `#${r.productId}`}</td>
                     <td>{r.quantityReceived}</td>
-                    <td>{new Date(r.receivedDate).toLocaleString()}</td>
+                    <td>
+                      {r.receivedDate
+                        ? new Intl.DateTimeFormat(undefined, {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          }).format(new Date(r.receivedDate))
+                        : "—"}
+                    </td>
+
                     <td>{r.referenceNumber ?? "—"}</td>
                     <td>{r.notes ?? "—"}</td>
                     <td>{r.receivedByUserName ?? "—"}</td>
