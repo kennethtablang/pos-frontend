@@ -115,6 +115,11 @@ const menuItems: MenuItem[] = [
         icon: <Bell className="w-5 h-5" />,
       },
       {
+        to: "/dashboard/inventory/inventory-transactions",
+        label: "Inventory Transactions",
+        icon: <Clipboard className="w-5 h-5" />,
+      },
+      {
         to: "/dashboard/inventory/units",
         label: "Units",
         icon: <Boxes className="w-5 h-5" />,

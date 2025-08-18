@@ -120,6 +120,7 @@ export default function ProductListPage() {
               <tr>
                 <th className="px-4 py-2">Image</th>
                 <th className="px-4 py-2 text-left">Name</th>
+                <th className="px-4 py-2 text-left">On Hand</th>
                 <th className="px-4 py-2 text-left">Barcode</th>
                 <th className="px-4 py-2 text-left">Category</th>
                 <th className="px-4 py-2 text-left">Unit</th>
@@ -145,6 +146,7 @@ export default function ProductListPage() {
                     )}
                   </td>
                   <td className="px-4 py-2">{p.name}</td>
+                  <td className="px-4 py-2">{p.onHand}</td>
                   <td className="px-4 py-2">{p.barcode || "—"}</td>
                   <td className="px-4 py-2">{p.categoryName || "—"}</td>
                   <td className="px-4 py-2">{p.unitName || "—"}</td>

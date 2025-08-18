@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/pages/purchaseorders/PurchaseOrderDetailsPage.tsx
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Edit, Download, Trash, FileText, ChevronLeft } from "lucide-react";
 import toast from "react-hot-toast";
@@ -8,7 +8,7 @@ import toast from "react-hot-toast";
 import { purchaseOrderService } from "@/services/purchaseOrderService";
 import type {
   PurchaseOrderReadDto,
-  PurchaseItemReadDto,
+  PurchaseOrderItemReadDto,
   ReceivedStockReadDto,
 } from "@/types/purchaseOrder";
 
@@ -31,9 +31,8 @@ export default function PurchaseOrderDetailsPage() {
   // UI state for modals
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isReceiveOpen, setIsReceiveOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<PurchaseItemReadDto | null>(
-    null
-  );
+  const [selectedItem, setSelectedItem] =
+    useState<PurchaseOrderItemReadDto | null>(null);
 
   // Fetch the PO by id
   const fetchOrder = async () => {
@@ -64,14 +63,14 @@ export default function PurchaseOrderDetailsPage() {
     setIsEditOpen(true);
   };
 
-  const openReceiveForItem = (item: PurchaseItemReadDto) => {
+  const openReceiveForItem = (item: PurchaseOrderItemReadDto) => {
     if (!order) return;
     setSelectedItem(item);
     setIsReceiveOpen(true);
   };
 
-  const removeItem = async (item: PurchaseItemReadDto) => {
-    if ((item.receivedQuantity ?? 0) > 0) {
+  const removeItem = async (item: PurchaseOrderItemReadDto) => {
+    if ((item.quantityReceived ?? 0) > 0) {
       toast.error("Cannot remove an item that already has received quantity.");
       return;
     }
@@ -117,17 +116,26 @@ export default function PurchaseOrderDetailsPage() {
       toast("Nothing to export", { icon: "ℹ️" });
       return;
     }
+
     const rows = [
-      ["Product", "Quantity", "Received", "CostPerUnit", "LineTotal", "Notes"],
-      ...order.purchaseItems.map((it) => [
+      [
+        "Product",
+        "QuantityOrdered",
+        "QuantityReceived",
+        "CostPerUnit",
+        "LineTotal",
+        "Notes",
+      ],
+      ...(order.items ?? []).map((it) => [
         it.productName ?? `#${it.productId}`,
-        it.quantity,
-        it.receivedQuantity ?? 0,
-        it.costPerUnit.toFixed(2),
-        ((it.quantity ?? 0) * (it.costPerUnit ?? 0)).toFixed(2),
-        it.notes ?? "",
+        String(it.quantityOrdered ?? 0),
+        String(it.quantityReceived ?? 0),
+        (it.unitCost ?? 0).toFixed(2),
+        ((it.quantityOrdered ?? 0) * (it.unitCost ?? 0)).toFixed(2),
+        it.remarks ?? "",
       ]),
     ];
+
     const csv = rows
       .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(","))
       .join("\n");
@@ -135,7 +143,7 @@ export default function PurchaseOrderDetailsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${order.purchaseOrderNumber}-items.csv`;
+    a.download = `${order.purchaseOrderNumber ?? "po"}-items.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -159,8 +167,8 @@ export default function PurchaseOrderDetailsPage() {
       ],
       ...order.receivedStocks.map((r) => [
         r.productName ?? `#${r.productId}`,
-        r.quantityReceived,
-        r.receivedDate,
+        String(r.quantityReceived ?? 0),
+        r.receivedDate ?? "",
         r.referenceNumber ?? "",
         r.notes ?? "",
         r.receivedByUserName ?? "",
@@ -173,7 +181,7 @@ export default function PurchaseOrderDetailsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${order.purchaseOrderNumber}-received.csv`;
+    a.download = `${order.purchaseOrderNumber ?? "po"}-received.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -204,6 +212,10 @@ export default function PurchaseOrderDetailsPage() {
     );
   }
 
+  // ---- Here is the fix: derive a concrete, typed `status` (fallback to Draft) ----
+  const status: PurchaseOrderStatus = (order.status ??
+    PurchaseOrderStatus.Draft) as PurchaseOrderStatus;
+
   return (
     <section className="p-6 space-y-6">
       {/* Header */}
@@ -213,13 +225,17 @@ export default function PurchaseOrderDetailsPage() {
           <div className="text-sm text-gray-500">
             Supplier: {order.supplierName ?? "—"} • Status:{" "}
             <span className="font-medium">
-              {PurchaseOrderStatusLabels[order.status]}
+              {PurchaseOrderStatusLabels[status]}
             </span>
           </div>
           <div className="text-sm text-gray-500 mt-1">
-            Order Date: {new Date(order.orderDate).toLocaleString()} • Created:{" "}
-            {order.createdByUserName ?? "—"} • Total:{" "}
-            <strong>{total.toFixed(2)}</strong>
+            Order Date:{" "}
+            {order.orderDate ? new Date(order.orderDate).toLocaleString() : "—"}{" "}
+            • Created: {order.createdByUserName ?? order.createdByUserId ?? "—"}{" "}
+            • Total:{" "}
+            <strong>
+              {total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </strong>
           </div>
           {order.remarks && <div className="mt-2 text-sm">{order.remarks}</div>}
         </div>
@@ -253,7 +269,9 @@ export default function PurchaseOrderDetailsPage() {
             className="btn btn-ghost"
             onClick={exportReceivedCsv}
             title="Export received CSV"
-            disabled={!order.receivedStocks?.length}
+            disabled={
+              !order.receivedStocks || order.receivedStocks.length === 0
+            }
           >
             <FileText className="w-4 h-4" /> Export Received
           </button>
@@ -265,11 +283,11 @@ export default function PurchaseOrderDetailsPage() {
         <div className="flex items-center justify-between mb-3">
           <div className="font-medium">Items</div>
           <div className="text-sm text-gray-500">
-            Total lines: {order.purchaseItems.length}
+            Total lines: {(order.items ?? []).length}
           </div>
         </div>
 
-        {order.purchaseItems.length === 0 ? (
+        {(order.items ?? []).length === 0 ? (
           <div className="text-sm text-gray-500 p-4">
             No items on this purchase order.
           </div>
@@ -288,24 +306,24 @@ export default function PurchaseOrderDetailsPage() {
                 </tr>
               </thead>
               <tbody>
-                {order.purchaseItems.map((it) => {
-                  const remaining = it.quantity - (it.receivedQuantity ?? 0);
+                {(order.items ?? []).map((it) => {
+                  const qtyOrdered = it.quantityOrdered ?? 0;
+                  const qtyReceived = it.quantityReceived ?? 0;
+                  const remaining = qtyOrdered - qtyReceived;
                   const isFullyReceived = remaining <= 0;
                   const receiveDisabled =
                     isFullyReceived ||
-                    order.status === PurchaseOrderStatus.Received ||
-                    order.status === PurchaseOrderStatus.Cancelled;
+                    status === PurchaseOrderStatus.Received ||
+                    status === PurchaseOrderStatus.Cancelled;
 
                   return (
                     <tr key={it.id}>
                       <td>{it.productName ?? `#${it.productId}`}</td>
-                      <td>{it.quantity}</td>
-                      <td>{it.receivedQuantity ?? 0}</td>
-                      <td>{it.costPerUnit.toFixed(2)}</td>
-                      <td>
-                        {((it.quantity ?? 0) * it.costPerUnit).toFixed(2)}
-                      </td>
-                      <td>{it.notes ?? "—"}</td>
+                      <td>{qtyOrdered}</td>
+                      <td>{qtyReceived}</td>
+                      <td>{(it.unitCost ?? 0).toFixed(2)}</td>
+                      <td>{(qtyOrdered * (it.unitCost ?? 0)).toFixed(2)}</td>
+                      <td>{it.remarks ?? "—"}</td>
                       <td className="flex gap-2">
                         <button
                           className="btn btn-xs btn-ghost"
@@ -319,14 +337,12 @@ export default function PurchaseOrderDetailsPage() {
                         <button
                           className="btn btn-xs btn-outline btn-error"
                           title={
-                            (it.receivedQuantity ?? 0) > 0
+                            qtyReceived > 0
                               ? "Cannot remove: item already received"
                               : "Remove item"
                           }
                           onClick={() => removeItem(it)}
-                          disabled={
-                            (it.receivedQuantity ?? 0) > 0 || refreshing
-                          }
+                          disabled={qtyReceived > 0 || refreshing}
                         >
                           <Trash className="w-4 h-4" />
                         </button>
@@ -368,7 +384,7 @@ export default function PurchaseOrderDetailsPage() {
                 </tr>
               </thead>
               <tbody>
-                {order.receivedStocks.map((r) => (
+                {order.receivedStocks!.map((r) => (
                   <tr key={r.id}>
                     <td>{r.productName ?? `#${r.productId}`}</td>
                     <td>{r.quantityReceived}</td>
@@ -381,7 +397,6 @@ export default function PurchaseOrderDetailsPage() {
                           }).format(new Date(r.receivedDate))
                         : "—"}
                     </td>
-
                     <td>{r.referenceNumber ?? "—"}</td>
                     <td>{r.notes ?? "—"}</td>
                     <td>{r.receivedByUserName ?? "—"}</td>
@@ -411,12 +426,11 @@ export default function PurchaseOrderDetailsPage() {
           fetchOrder();
         }}
         order={order}
-        // expecting modal will call onUpdated prop; if not present we fallback to closing + fetching
         onUpdated={async () => {
           setIsEditOpen(false);
           await fetchOrder();
         }}
-        suppliers={[]} /* If your Edit modal requires suppliers, you can fetch them here or pass props */
+        suppliers={[]} /* pass suppliers if desired */
       />
 
       {isReceiveOpen && selectedItem && (

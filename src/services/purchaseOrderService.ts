@@ -4,21 +4,12 @@ import type {
   PurchaseOrderReadDto,
   PurchaseOrderCreateDto,
   PurchaseOrderUpdateDto,
-  PurchaseItemCreateDto,
-  PurchaseItemReadDto,
-  PurchaseItemUpdateDto,
-  ReceivedStockCreateDto,
-  ReceivedStockReadDto,
+  ReceiveStockCreateDto,
 } from "@/types/purchaseOrder";
 
-/**
- * Base URL — adjust if your backend controller route differs.
- * axiosInstance typically prefixes '/api' so this resolves to '/api/purchase-orders'
- */
-const BASE_URL = "/PurchaseOrder";
+const BASE_URL = "/PurchaseOrders";
 
 export const purchaseOrderService = {
-  // Purchase Orders
   getAll: async (): Promise<PurchaseOrderReadDto[]> => {
     const res = await axiosInstance.get<PurchaseOrderReadDto[]>(BASE_URL);
     return res.data;
@@ -34,46 +25,49 @@ export const purchaseOrderService = {
     return res.data;
   },
 
-  update: async (id: number, dto: PurchaseOrderUpdateDto): Promise<void> => {
-    await axiosInstance.put(`${BASE_URL}/${id}`, dto);
+  update: async (id: number, dto: PurchaseOrderUpdateDto): Promise<PurchaseOrderReadDto> => {
+    const res = await axiosInstance.put<PurchaseOrderReadDto>(`${BASE_URL}/${id}`, dto);
+    return res.data;
   },
 
   delete: async (id: number): Promise<void> => {
     await axiosInstance.delete(`${BASE_URL}/${id}`);
   },
 
-  // Purchase Items (subresource)
-  addItem: async (purchaseOrderId: number, dto: PurchaseItemCreateDto): Promise<PurchaseItemReadDto> => {
-    const res = await axiosInstance.post<PurchaseItemReadDto>(`${BASE_URL}/${purchaseOrderId}/items`, dto);
-    return res.data;
-  },
-
-  updateItem: async (id: number, dto: PurchaseItemUpdateDto): Promise<void> => {
-    await axiosInstance.put(`${BASE_URL}/items/${id}`, dto);
-  },
-
-  removeItem: async (id: number): Promise<void> => {
-    await axiosInstance.delete(`${BASE_URL}/items/${id}`);
-  },
-
-  // Received Stocks (subresource)
-  addReceivedStock: async (dto: ReceivedStockCreateDto): Promise<ReceivedStockReadDto> => {
-    const res = await axiosInstance.post<ReceivedStockReadDto>(`${BASE_URL}/received`, dto);
-    return res.data;
-  },
-
-  deleteReceivedStock: async (id: number): Promise<void> => {
-    await axiosInstance.delete(`${BASE_URL}/received/${id}`);
-  },
-
-  // Optional helpers: fetch POs by supplier or status (implement server-side if needed)
+  // Convenience filtering (if server supports query params)
   getBySupplier: async (supplierId: number): Promise<PurchaseOrderReadDto[]> => {
-    const res = await axiosInstance.get<PurchaseOrderReadDto[]>(`${BASE_URL}`, { params: { supplierId } });
+    const res = await axiosInstance.get<PurchaseOrderReadDto[]>(BASE_URL, { params: { supplierId } });
     return res.data;
   },
 
   getByStatus: async (status: number): Promise<PurchaseOrderReadDto[]> => {
-    const res = await axiosInstance.get<PurchaseOrderReadDto[]>(`${BASE_URL}`, { params: { status } });
+    const res = await axiosInstance.get<PurchaseOrderReadDto[]>(BASE_URL, { params: { status } });
     return res.data;
+  },
+
+  // POST /api/PurchaseOrders/receive
+  receiveStock: async (dto: ReceiveStockCreateDto): Promise<void> => {
+    await axiosInstance.post(`${BASE_URL}/receive`, dto);
+  },
+
+  // ---- New helpers for pending receivings / posting to inventory (match PurchaseOrdersController) ----
+  // GET /api/PurchaseOrders/pending
+  getPendingReceivings: async (): Promise<PurchaseOrderReadDto[]> => {
+    const res = await axiosInstance.get<PurchaseOrderReadDto[]>(`${BASE_URL}/pending`);
+    return res.data;
+  },
+
+  // POST /api/PurchaseOrders/{poId}/post
+  postReceivedToInventory: async (purchaseOrderId: number): Promise<void> => {
+    await axiosInstance.post(`${BASE_URL}/${purchaseOrderId}/post`);
+  },
+
+  // ---- Existing helpers used by details page ----
+  removeItem: async (itemId: number): Promise<void> => {
+    await axiosInstance.delete(`${BASE_URL}/items/${itemId}`);
+  },
+
+  deleteReceivedStock: async (receivedId: number): Promise<void> => {
+    await axiosInstance.delete(`${BASE_URL}/received/${receivedId}`);
   },
 };

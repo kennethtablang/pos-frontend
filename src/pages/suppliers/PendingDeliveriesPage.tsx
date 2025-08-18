@@ -25,6 +25,9 @@ export default function PendingDeliveriesPage() {
   const [suppliers, setSuppliers] = useState<SupplierReadDto[]>([]);
   const [suppliersLoading, setSuppliersLoading] = useState(false);
 
+  // Toggle: include Drafts (useful while testing)
+  const [includeDrafts, setIncludeDrafts] = useState(false);
+
   // Pagination
   const [page, setPage] = useState(1);
   const pageSize = 12;
@@ -65,16 +68,27 @@ export default function PendingDeliveriesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // debug: quickly inspect statuses returned by server (remove in production)
+  useEffect(() => {
+    console.debug(
+      "PurchaseOrders statuses:",
+      orders.map((o) => ({ id: o.id, status: o.status }))
+    );
+  }, [orders]);
+
   // derive pending orders: Ordered or PartiallyReceived
-  const pendingOrders = useMemo(
-    () =>
-      orders.filter(
-        (o) =>
-          o.status === PurchaseOrderStatus.Ordered ||
-          o.status === PurchaseOrderStatus.PartiallyReceived
-      ),
-    [orders]
-  );
+  // if includeDrafts is true we also include Draft
+  const pendingOrders = useMemo(() => {
+    return orders.filter((o) => {
+      const status = (o.status ??
+        PurchaseOrderStatus.Draft) as PurchaseOrderStatus;
+      if (includeDrafts && status === PurchaseOrderStatus.Draft) return true;
+      return (
+        status === PurchaseOrderStatus.Ordered ||
+        status === PurchaseOrderStatus.PartiallyReceived
+      );
+    });
+  }, [orders, includeDrafts]);
 
   // filtered by user inputs
   const filtered = useMemo(() => {
@@ -106,17 +120,24 @@ export default function PendingDeliveriesPage() {
     navigate(`/dashboard/purchase-orders/${id}`);
   };
 
-  // Export helpers (items / received) - reuse same CSV logic as in details page
+  // Export helpers (items / received) - use `items` (matches your types)
   const exportItemsCsv = (order: PurchaseOrderReadDto) => {
     const rows = [
-      ["Product", "Quantity", "Received", "CostPerUnit", "LineTotal", "Notes"],
-      ...order.purchaseItems.map((it) => [
+      [
+        "Product",
+        "QuantityOrdered",
+        "QuantityReceived",
+        "CostPerUnit",
+        "LineTotal",
+        "Notes",
+      ],
+      ...(order.items ?? []).map((it) => [
         it.productName ?? `#${it.productId}`,
-        it.quantity,
-        it.receivedQuantity ?? 0,
-        it.costPerUnit.toFixed(2),
-        ((it.quantity ?? 0) * it.costPerUnit).toFixed(2),
-        it.notes ?? "",
+        String(it.quantityOrdered ?? 0),
+        String(it.quantityReceived ?? 0),
+        (it.unitCost ?? 0).toFixed(2),
+        ((it.quantityOrdered ?? 0) * (it.unitCost ?? 0)).toFixed(2),
+        it.remarks ?? "",
       ]),
     ];
     const csv = rows
@@ -126,7 +147,7 @@ export default function PendingDeliveriesPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${order.purchaseOrderNumber}-items.csv`;
+    a.download = `${order.purchaseOrderNumber ?? "po"}-items.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -150,8 +171,8 @@ export default function PendingDeliveriesPage() {
       ],
       ...order.receivedStocks.map((r) => [
         r.productName ?? `#${r.productId}`,
-        r.quantityReceived,
-        r.receivedDate,
+        String(r.quantityReceived ?? 0),
+        r.receivedDate ?? "",
         r.referenceNumber ?? "",
         r.notes ?? "",
         r.receivedByUserName ?? "",
@@ -164,7 +185,7 @@ export default function PendingDeliveriesPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${order.purchaseOrderNumber}-received.csv`;
+    a.download = `${order.purchaseOrderNumber ?? "po"}-received.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -185,6 +206,24 @@ export default function PendingDeliveriesPage() {
     }
   };
 
+  // choose badge class for status
+  const getStatusBadgeClass = (status: PurchaseOrderStatus) => {
+    switch (status) {
+      case PurchaseOrderStatus.Draft:
+        return "badge-ghost";
+      case PurchaseOrderStatus.Ordered:
+        return "badge-info";
+      case PurchaseOrderStatus.PartiallyReceived:
+        return "badge-warning";
+      case PurchaseOrderStatus.Cancelled:
+        return "badge-error";
+      case PurchaseOrderStatus.Received:
+        return "badge-success";
+      default:
+        return "badge-ghost";
+    }
+  };
+
   return (
     <section className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -194,7 +233,17 @@ export default function PendingDeliveriesPage() {
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={includeDrafts}
+              onChange={(e) => setIncludeDrafts(e.target.checked)}
+              className="checkbox checkbox-sm"
+            />
+            Include Drafts
+          </label>
+
           <button
             onClick={() => fetchOrders()}
             className="btn btn-ghost btn-sm"
@@ -268,64 +317,66 @@ export default function PendingDeliveriesPage() {
               </tr>
             </thead>
             <tbody>
-              {pageItems.map((o) => (
-                <tr key={o.id} className="hover">
-                  <td className="px-4 py-2">{o.purchaseOrderNumber}</td>
-                  <td className="px-4 py-2">{o.supplierName ?? "—"}</td>
-                  <td className="px-4 py-2">
-                    {o.expectedDeliveryDate
-                      ? new Date(o.expectedDeliveryDate).toLocaleDateString()
-                      : "—"}
-                    {isOverdue(o.expectedDeliveryDate) && (
-                      <span className="ml-2 badge badge-sm badge-error">
-                        Overdue
+              {pageItems.map((o) => {
+                const status = (o.status ??
+                  PurchaseOrderStatus.Draft) as PurchaseOrderStatus;
+                return (
+                  <tr key={o.id} className="hover">
+                    <td className="px-4 py-2">{o.purchaseOrderNumber}</td>
+                    <td className="px-4 py-2">{o.supplierName ?? "—"}</td>
+                    <td className="px-4 py-2">
+                      {o.expectedDeliveryDate
+                        ? new Date(o.expectedDeliveryDate).toLocaleDateString()
+                        : "—"}
+                      {isOverdue(o.expectedDeliveryDate) && (
+                        <span className="ml-2 badge badge-sm badge-error">
+                          Overdue
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2">
+                      <span
+                        className={`badge badge-sm ${getStatusBadgeClass(status)}`}
+                      >
+                        {PurchaseOrderStatusLabels[status]}
                       </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2">
-                    <span
-                      className={`badge badge-sm ${
-                        o.status === PurchaseOrderStatus.PartiallyReceived
-                          ? "badge-warning"
-                          : "badge-ghost"
-                      }`}
-                    >
-                      {PurchaseOrderStatusLabels[o.status]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    {o.totalCost.toFixed(2)}
-                  </td>
-                  <td className="px-4 py-2 flex gap-2">
-                    <button
-                      className="btn btn-xs btn-ghost"
-                      title="View details"
-                      onClick={() => handleView(o.id)}
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {o.totalCost?.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                      })}
+                    </td>
+                    <td className="px-4 py-2 flex gap-2">
+                      <button
+                        className="btn btn-xs btn-ghost"
+                        title="View details"
+                        onClick={() => handleView(o.id)}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
 
-                    <button
-                      className="btn btn-xs btn-ghost"
-                      title="Export items CSV"
-                      onClick={() => exportItemsCsv(o)}
-                    >
-                      <FileText className="w-4 h-4" />
-                    </button>
+                      <button
+                        className="btn btn-xs btn-ghost"
+                        title="Export items CSV"
+                        onClick={() => exportItemsCsv(o)}
+                      >
+                        <FileText className="w-4 h-4" />
+                      </button>
 
-                    <button
-                      className="btn btn-xs btn-ghost"
-                      title="Export received CSV"
-                      onClick={() => exportReceivedCsv(o)}
-                      disabled={
-                        !o.receivedStocks || o.receivedStocks.length === 0
-                      }
-                    >
-                      <FileText className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                      <button
+                        className="btn btn-xs btn-ghost"
+                        title="Export received CSV"
+                        onClick={() => exportReceivedCsv(o)}
+                        disabled={
+                          !o.receivedStocks || o.receivedStocks.length === 0
+                        }
+                      >
+                        <FileText className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

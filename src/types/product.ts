@@ -26,6 +26,7 @@ export interface ProductReadDto {
   isPerishable: boolean;
   reorderLevel?: number;
   isActive: boolean;
+  onHand: number;
   imageBase64?: string;
 }
 

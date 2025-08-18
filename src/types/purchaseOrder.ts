@@ -1,4 +1,5 @@
 // src/types/purchaseOrder.ts
+
 export enum PurchaseOrderStatus {
   Draft = 0,
   Ordered = 1,
@@ -15,50 +16,84 @@ export const PurchaseOrderStatusLabels: Record<PurchaseOrderStatus, string> = {
   [PurchaseOrderStatus.Received]: "Received",
 };
 
-export interface PurchaseItemReadDto {
+// Item DTOs used by create/update
+export interface PurchaseOrderItemCreateDto {
+  productId: number;
+  unitId: number;
+  quantityOrdered: number; // decimal
+  unitCost: number; // decimal
+  remarks?: string;
+}
+
+export interface PurchaseOrderItemUpdateDto {
+  id?: number | null; // null or undefined -> new line
+  productId: number;
+  unitId: number;
+  quantityOrdered: number;
+  unitCost: number;
+  remarks?: string;
+}
+
+// Read DTO for items (from backend)
+export interface PurchaseOrderItemReadDto {
   id: number;
-  purchaseOrderId: number;
   productId: number;
   productName?: string;
-  costPerUnit: number;
-  quantity: number;
-  receivedQuantity: number;
-  notes?: string | null;
-  totalCost?: number;
+  unitId: number;
+  unitName?: string;
+  quantityOrdered: number;
+  quantityReceived: number;
+  unitCost: number;
+  remarks?: string;
+  // convenience
+  remainingOrdered?: number;
+  isClosed?: boolean;
 }
 
-export interface PurchaseItemCreateDto {
-  productId: number;
-  costPerUnit: number;
-  quantity: number;
-  notes?: string;
-}
-
-export interface PurchaseItemUpdateDto {
-  costPerUnit: number;
-  quantity: number;
-  notes?: string;
-}
-
+// Received stock record (read DTO)
 export interface ReceivedStockReadDto {
   id: number;
   purchaseOrderId: number;
+  purchaseOrderItemId: number;
   productId: number;
   productName?: string;
   quantityReceived: number;
-  receivedDate: string;
+  receivedDate: string; // ISO string
   referenceNumber?: string | null;
   notes?: string | null;
+  receivedByUserId?: string | null;
   receivedByUserName?: string | null;
+  processed?: boolean;
 }
 
-export interface ReceivedStockCreateDto {
+// Receive DTO used when posting a receive action
+export interface ReceiveStockCreateDto {
   purchaseOrderId: number;
-  productId: number;
-  quantityReceived: number;
-  receivedDate?: string; 
+  purchaseOrderItemId: number;
+  quantityReceived: number;      // decimal, can be fractional
+  receivedDate?: string;         // ISO date string (optional)
   referenceNumber?: string;
   notes?: string;
+}
+
+// MAIN DTOs
+export interface PurchaseOrderCreateDto {
+  supplierId: number;
+  // optional: backend can generate if omitted
+  purchaseOrderNumber?: string;
+  orderDate?: string; // optional (server defaults to UtcNow)
+  expectedDeliveryDate?: string;
+  remarks?: string;
+  items?: PurchaseOrderItemCreateDto[];
+}
+
+export interface PurchaseOrderUpdateDto {
+  id: number; // required for update (server checks id)
+  supplierId: number;
+  purchaseOrderNumber: string;
+  expectedDeliveryDate?: string;
+  remarks?: string;
+  items: PurchaseOrderItemUpdateDto[]; // required by backend
 }
 
 export interface PurchaseOrderReadDto {
@@ -67,27 +102,13 @@ export interface PurchaseOrderReadDto {
   supplierName?: string;
   purchaseOrderNumber: string;
   orderDate: string;
-  isReceived: boolean;
-  remarks?: string | null;
-  status: PurchaseOrderStatus;
   expectedDeliveryDate?: string | null;
+  remarks?: string | null;
   totalCost: number;
-  purchaseItems: PurchaseItemReadDto[];
-  receivedStocks: ReceivedStockReadDto[];
-  createdAt: string;
+  items: PurchaseOrderItemReadDto[];
+  receivedStocks?: ReceivedStockReadDto[];
+  status?: PurchaseOrderStatus;
+  createdByUserId?: string | null;
   createdByUserName?: string | null;
-}
-
-export interface PurchaseOrderCreateDto {
-  supplierId: number;
-  remarks?: string;
-  expectedDeliveryDate?: string;
-  purchaseItems?: PurchaseItemCreateDto[];
-}
-
-export interface PurchaseOrderUpdateDto {
-  supplierId: number;
-  remarks?: string;
-  expectedDeliveryDate?: string;
-  status: PurchaseOrderStatus;
+  createdAt: string;
 }

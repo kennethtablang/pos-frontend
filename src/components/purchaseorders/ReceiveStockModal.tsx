@@ -2,11 +2,12 @@
 // src/components/purchaseorders/ReceiveStockModal.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import toast from "react-hot-toast";
 import { purchaseOrderService } from "@/services/purchaseOrderService";
 import type {
   PurchaseOrderReadDto,
-  PurchaseItemReadDto,
-  ReceivedStockCreateDto,
+  PurchaseOrderItemReadDto,
+  ReceiveStockCreateDto, // ensure this exists in your types (see note)
 } from "@/types/purchaseOrder";
 
 interface ReceiveStockModalProps {
@@ -15,13 +16,13 @@ interface ReceiveStockModalProps {
   purchaseOrder: PurchaseOrderReadDto;
   /**
    * Optional: if provided, modal will open pre-selected for this item.
-   * If not provided, user will pick an item from the purchaseOrder.purchaseItems list.
+   * If not provided, user will pick an item from the purchaseOrder.items list.
    */
-  item?: PurchaseItemReadDto;
+  item?: PurchaseOrderItemReadDto;
   /**
    * Optional callback parent can provide to refresh data after receive completes.
    */
-  onReceived?: () => Promise<void>;
+  onReceived?: () => Promise<void> | void;
 }
 
 export default function ReceiveStockModal({
@@ -33,75 +34,106 @@ export default function ReceiveStockModal({
 }: ReceiveStockModalProps) {
   const queryClient = useQueryClient();
 
-  // Available items for this PO
-  const items = purchaseOrder.purchaseItems ?? [];
+  // Use the standardized property name `items` (matches your current types)
+  const items = purchaseOrder.items ?? [];
 
-  // Selected item id (if `item` prop not provided)
+  // Helper: derive today's date in yyyy-mm-dd for <input type="date">
+  const todayIso = new Date().toISOString().slice(0, 10);
+
+  // selectedItemId can be number or empty string (for uncontrolled select)
   const [selectedItemId, setSelectedItemId] = useState<number | "">(
-    item ? item.id : items.length > 0 ? items[0].id : ""
+    () => item?.id ?? (items.length > 0 ? items[0].id : "")
   );
 
-  // Derived currently selected item
-  const selectedItem = useMemo<PurchaseItemReadDto | undefined>(() => {
-    return item ?? items.find((it) => it.id === selectedItemId);
-  }, [item, items, selectedItemId]);
-
-  // Remaining quantity for selected item
-  const remaining = selectedItem
-    ? Math.max(
-        0,
-        (selectedItem.quantity ?? 0) - (selectedItem.receivedQuantity ?? 0)
-      )
-    : 0;
-
-  // Default values
-  const todayIso = new Date().toISOString().slice(0, 10); // yyyy-mm-dd
-
-  // Form state
-  const [quantityReceived, setQuantityReceived] = useState<number>(
-    remaining || 1
-  );
+  // form fields
+  const [quantityReceived, setQuantityReceived] = useState<number>(1);
   const [receivedDate, setReceivedDate] = useState<string>(todayIso);
   const [referenceNumber, setReferenceNumber] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
 
-  // Keep form values in sync when item changes
+  // When modal opens or items / prop item change, sync selection and defaults
   useEffect(() => {
-    setSelectedItemId(item ? item.id : items.length > 0 ? items[0].id : "");
-    // set default quantity to remaining of the newly selected item
-    setQuantityReceived(remaining || 1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item, items, selectedItem?.id]);
+    if (!isOpen) return;
 
-  // Mutation for adding received stock
-  const addReceivedStockMutation = useMutation({
-    mutationFn: (dto: ReceivedStockCreateDto) =>
-      purchaseOrderService.addReceivedStock(dto),
+    const initialId = item?.id ?? (items.length > 0 ? items[0].id : "");
+    setSelectedItemId(initialId);
+
+    // Set defaults for fields based on selected item
+    const sel =
+      item ??
+      (items.length > 0 ? items.find((it) => it.id === initialId) : undefined);
+    const remaining = sel
+      ? Math.max(0, (sel.quantityOrdered ?? 0) - (sel.quantityReceived ?? 0))
+      : 0;
+
+    setQuantityReceived(remaining > 0 ? Number(remaining) : 1);
+    setReceivedDate(todayIso);
+    setReferenceNumber("");
+    setNotes("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, item, items]);
+
+  // Derived selected item from id or provided `item` prop
+  const selectedItem = useMemo<PurchaseOrderItemReadDto | undefined>(() => {
+    return item ?? items.find((it) => it.id === selectedItemId);
+  }, [item, items, selectedItemId]);
+
+  // Remaining to receive for selected item (decimal-safe)
+  const remaining = selectedItem
+    ? Math.max(
+        0,
+        Number(selectedItem.quantityOrdered ?? 0) -
+          Number(selectedItem.quantityReceived ?? 0)
+      )
+    : 0;
+
+  // Keep quantityReceived in bounds when selected item or remaining changes
+  useEffect(() => {
+    if (!isOpen) return;
+    if (remaining <= 0) {
+      setQuantityReceived(0);
+    } else {
+      // if current value exceeds remaining, clamp it
+      setQuantityReceived((prev) => {
+        if (!prev || prev <= 0) return Number(remaining);
+        return prev > remaining ? Number(remaining) : prev;
+      });
+    }
+  }, [remaining, isOpen]);
+
+  // Mutation to call backend - expects `purchaseOrderService.receiveStock(dto)`
+  const receiveMutation = useMutation({
+    mutationFn: (dto: ReceiveStockCreateDto) =>
+      purchaseOrderService.receiveStock(dto),
     onSuccess: async () => {
-      // Invalidate PO details so any detail page/query refreshes
+      toast.success("Received stock recorded");
+      // Invalidate general lists and the PO detail to ensure UI refresh
+      queryClient.invalidateQueries({ queryKey: ["purchaseOrders"] });
+      queryClient.invalidateQueries({
+        queryKey: ["purchase-order", purchaseOrder.id],
+      });
       queryClient.invalidateQueries({
         queryKey: ["purchase-orders", purchaseOrder.id],
       });
-      // optional parent refresh
-      if (onReceived) {
-        try {
-          await onReceived();
-        } catch {
-          /* ignore parent refresh errors */
-        }
+      // call parent refresh if provided
+      try {
+        if (onReceived) await onReceived();
+      } catch {
+        // ignore parent refresh errors
       }
       onClose();
     },
     onError: (err: any) => {
-      // surface server message if present
       const msg =
-        err?.response?.data?.message ?? "Failed to record received stock.";
-      // eslint-disable-next-line no-console
+        err?.response?.data?.message ??
+        err?.message ??
+        "Failed to record received stock.";
       console.error(err);
-      // Use toast if you have it; otherwise could bubble up error — keep console for now
-      alert(msg);
+      toast.error(msg);
     },
   });
+
+  const isLoading = receiveMutation.status === "pending";
 
   // Guard: don't render when closed
   if (!isOpen) return null;
@@ -109,7 +141,7 @@ export default function ReceiveStockModal({
   // Guard: ensure we have at least one selectable item
   if (!selectedItem) {
     return (
-      <dialog className="modal modal-open">
+      <dialog className="modal modal-open" aria-modal>
         <div className="modal-box">
           <h3 className="font-bold text-lg">Receive Stock</h3>
           <div className="py-4 text-sm text-gray-600">
@@ -128,36 +160,45 @@ export default function ReceiveStockModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate quantityReceived
-    if (!quantityReceived || quantityReceived < 1) {
-      alert("Quantity received must be at least 1.");
+    // quantity validation (backend allows fractional quantities)
+    if (!quantityReceived || Number(quantityReceived) <= 0) {
+      toast.error("Quantity received must be greater than 0.");
       return;
     }
-    if (quantityReceived > remaining) {
-      alert(
+
+    if (Number(quantityReceived) > Number(remaining)) {
+      toast.error(
         `Quantity received cannot exceed remaining quantity (${remaining}).`
       );
       return;
     }
 
-    const dto: ReceivedStockCreateDto = {
+    const dto: ReceiveStockCreateDto = {
       purchaseOrderId: purchaseOrder.id,
-      productId: selectedItem.productId,
-      quantityReceived,
-      receivedDate: receivedDate || undefined,
+      purchaseOrderItemId: selectedItem.id,
+      quantityReceived: Number(quantityReceived),
+      receivedDate: receivedDate
+        ? new Date(receivedDate).toISOString()
+        : undefined,
       referenceNumber: referenceNumber || undefined,
       notes: notes || undefined,
     };
 
-    addReceivedStockMutation.mutate(dto);
+    receiveMutation.mutate(dto);
   };
 
-  const isLoading = addReceivedStockMutation.status === "pending";
+  const disableSave = isLoading || remaining <= 0;
 
   return (
-    <dialog className="modal modal-open">
-      <div className="modal-box max-w-md">
-        <h3 className="font-bold text-lg">Receive Stock</h3>
+    <dialog className={`modal ${isOpen ? "modal-open" : ""}`} aria-modal>
+      <div
+        className="modal-box max-w-md"
+        role="dialog"
+        aria-labelledby="receive-stock-title"
+      >
+        <h3 id="receive-stock-title" className="font-bold text-lg">
+          Receive Stock
+        </h3>
 
         <div className="text-sm text-gray-600 mb-3">
           PO:{" "}
@@ -172,7 +213,7 @@ export default function ReceiveStockModal({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">
-          {/* Item selector if parent did not supply specific item */}
+          {/* Item selector (hidden if item prop provided or single item) */}
           {!item && items.length > 1 && (
             <div>
               <label className="label">Select Item</label>
@@ -186,12 +227,16 @@ export default function ReceiveStockModal({
                 className="select select-bordered w-full"
                 disabled={isLoading}
               >
-                {items.map((it) => (
-                  <option key={it.id} value={it.id}>
-                    {it.productName ?? `#${it.productId}`} — Qty: {it.quantity}{" "}
-                    (Received: {it.receivedQuantity ?? 0})
-                  </option>
-                ))}
+                {items.map((it) => {
+                  const qtyOrdered = Number(it.quantityOrdered ?? 0);
+                  const qtyReceived = Number(it.quantityReceived ?? 0);
+                  return (
+                    <option key={it.id} value={it.id}>
+                      {it.productName ?? `#${it.productId}`} — Ordered:{" "}
+                      {qtyOrdered} (Received: {qtyReceived})
+                    </option>
+                  );
+                })}
               </select>
             </div>
           )}
@@ -211,13 +256,13 @@ export default function ReceiveStockModal({
 
             <input
               type="number"
-              min={1}
-              max={remaining}
+              min={0.0001}
+              step="any"
               value={quantityReceived}
               onChange={(e) => setQuantityReceived(Number(e.target.value))}
               className="input input-bordered w-full"
+              disabled={isLoading || remaining <= 0}
               required
-              disabled={isLoading}
             />
           </div>
 
@@ -272,7 +317,10 @@ export default function ReceiveStockModal({
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={isLoading}
+              disabled={disableSave}
+              title={
+                remaining <= 0 ? "No remaining quantity to receive" : undefined
+              }
             >
               {isLoading ? "Saving..." : "Save"}
             </button>
