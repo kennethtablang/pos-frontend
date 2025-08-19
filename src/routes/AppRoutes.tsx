@@ -27,7 +27,6 @@ import StockReceivingPage from "../pages/inventory/StockReceivingPage";
 import StockReceivingHistoryPage from "../pages/inventory/StockReceivingHistoryPage";
 import StockAdjustmentPage from "../pages/inventory/StockAdjustmentsPage";
 import BadOrderPage from "../pages/inventory/BadOrderPage";
-import LowStockAlertPage from "../pages/inventory/LowStockAlertsPage";
 import InventoryTransactionPage from "../pages/inventory/InventoryTransactionPage";
 import UnitPage from "../pages/inventory/UnitPage";
 import ProductUnitConversionPage from "../pages/inventory/ProductUnitConversionPage";
@@ -176,15 +175,6 @@ const AppRoutes = () => (
         element={
           <RoleProtectedRoute allowedRoles={["Admin"]}>
             <BadOrderPage />
-          </RoleProtectedRoute>
-        }
-      />
-
-      <Route
-        path="inventory/low-stock"
-        element={
-          <RoleProtectedRoute allowedRoles={["Admin"]}>
-            <LowStockAlertPage />
           </RoleProtectedRoute>
         }
       />

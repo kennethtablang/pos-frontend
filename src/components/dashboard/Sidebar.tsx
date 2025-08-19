@@ -110,11 +110,6 @@ const menuItems: MenuItem[] = [
         icon: <AlertCircle className="w-5 h-5" />,
       },
       {
-        to: "/dashboard/inventory/low-stock",
-        label: "Low-Stock Alerts",
-        icon: <Bell className="w-5 h-5" />,
-      },
-      {
         to: "/dashboard/inventory/inventory-transactions",
         label: "Inventory Transactions",
         icon: <Clipboard className="w-5 h-5" />,
