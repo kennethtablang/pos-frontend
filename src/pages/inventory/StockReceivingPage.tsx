@@ -61,7 +61,6 @@ export default function StockReceivingPage() {
   useEffect(() => {
     fetchPending();
     fetchSuppliers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // filter the orders client-side using search + supplier filter
